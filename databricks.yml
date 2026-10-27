@@ -1,0 +1,100 @@
+# Databricks Asset Bundle de aml-account-closure.
+# Los valores reales NO van en este archivo: se entregan al desplegar como variables de entorno
+# BUNDLE_VAR_<nombre> (ver .github/workflows/deploy.yml y README > Configuración).
+bundle:
+  name: aml-account-closure
+
+include:
+  - resources/*.yml
+
+artifacts:
+  aml_account_closure:
+    type: whl
+    build: python -m build --wheel
+    path: .
+    # Versión única por despliegue: el cluster existente reinstala el wheel sin reiniciarse.
+    dynamic_version: true
+
+variables:
+  # _____Ejecución_____
+  cluster_id:
+    description: ID del cluster existente donde corre el job (trae pymongo y el entorno corporativo).
+  service_principal_application_id:
+    description: Application ID del service principal con el que corre el job en prod.
+  dry_run:
+    description: Valor por defecto del parámetro dry_run del job.
+    default: "true"
+  trigger_pause_status:
+    description: PAUSED o UNPAUSED para el file arrival trigger.
+    default: PAUSED
+  utils_dir:
+    description: Carpeta del Workspace que contiene el módulo corporativo `utils` (vacío si ya está en sys.path).
+    default: ""
+
+  # _____API backoffice_____
+  api_base_url:
+    description: URL base de la API backoffice.
+  api_key_scope:
+    description: Secret scope de la API key.
+  api_key_name:
+    description: Key de la API key dentro del scope.
+  operator_user:
+    description: Usuario operador que se envía en la auditoría de cada llamada.
+
+  # _____Mongo (se pasan tal cual a conectar_mongo)_____
+  mongo_connection:
+    description: Primer argumento de conectar_mongo (nombre de la conexión/scope).
+  mongo_secret:
+    description: Segundo argumento de conectar_mongo (nombre del secreto).
+
+  # _____Volume y Delta_____
+  aml_dir:
+    description: Carpeta AML del Volume; contiene A_Procesar, Procesados, Con_Error y Logs.
+  tables_schema:
+    description: Catálogo y schema de las tablas Delta propias.
+    default: gold_cumplimiento.analytics
+
+  # _____Notificaciones_____
+  email_recipients:
+    description: Correos de Operaciones separados por coma (correo de detalle, siempre).
+  success_recipients:
+    description: Correos separados por coma del correo de éxito (solo SUCCESS con retiro). Vacío = no se envía.
+    default: ""
+  teams_chat_id:
+    description: Chat de Teams para el resumen.
+  treasury_source_account:
+    description: Cuenta operativa de origen que se menciona en el correo de éxito.
+  treasury_target_account:
+    description: Cuenta administrativa de destino que se menciona en el correo de éxito.
+  logo_url:
+    description: URL del logo del correo de éxito.
+
+  # _____Solo dev_____
+  dev_json_accounts:
+    description: Ruta del export JSON de cuentas (solo dev; vacío = Mongo).
+    default: ""
+  dev_json_cards:
+    description: Ruta del export JSON de tarjetas (solo dev).
+    default: ""
+
+targets:
+  dev:
+    # development: el job se despliega con prefijo [dev <usuario>] bajo el usuario que despliega.
+    # Dev y prod comparten A_Procesar: en dev el trigger queda PAUSADO y se ejecuta a mano con dry_run=true.
+    mode: development
+    default: true
+    variables:
+      dry_run: "true"
+      trigger_pause_status: PAUSED
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    run_as:
+      service_principal_name: ${var.service_principal_application_id}
+    variables:
+      dry_run: "false"
+      trigger_pause_status: UNPAUSED
+      dev_json_accounts: ""
+      dev_json_cards: ""

@@ -1,0 +1,67 @@
+resources:
+  jobs:
+    aml_account_closure:
+      name: aml-account-closure-${bundle.target}
+      description: Bloqueo y cierre de cuentas AML a partir del Excel que Cumplimiento deja en A_Procesar.
+
+      # Un solo run a la vez: el notebook procesa todos los archivos pendientes en cada ejecución.
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+
+      # La carpeta de procesados (Procesados/Con_Error/Logs) es hermana de A_Procesar, NO está dentro:
+      # mover el archivo no vuelve a disparar el trigger.
+      trigger:
+        pause_status: ${var.trigger_pause_status}
+        file_arrival:
+          url: ${var.aml_dir}/A_Procesar/
+
+      parameters:
+        - name: env
+          default: ${bundle.target}
+        - name: dry_run
+          default: ${var.dry_run}
+        - name: force
+          default: "false"
+        - name: utils_dir
+          default: ${var.utils_dir}
+        - name: api_base_url
+          default: ${var.api_base_url}
+        - name: api_key_scope
+          default: ${var.api_key_scope}
+        - name: api_key_name
+          default: ${var.api_key_name}
+        - name: mongo_connection
+          default: ${var.mongo_connection}
+        - name: mongo_secret
+          default: ${var.mongo_secret}
+        - name: aml_dir
+          default: ${var.aml_dir}
+        - name: tables_schema
+          default: ${var.tables_schema}
+        - name: email_recipients
+          default: ${var.email_recipients}
+        - name: success_recipients
+          default: ${var.success_recipients}
+        - name: teams_chat_id
+          default: ${var.teams_chat_id}
+        - name: operator_user
+          default: ${var.operator_user}
+        - name: treasury_source_account
+          default: ${var.treasury_source_account}
+        - name: treasury_target_account
+          default: ${var.treasury_target_account}
+        - name: logo_url
+          default: ${var.logo_url}
+        - name: dev_json_accounts
+          default: ${var.dev_json_accounts}
+        - name: dev_json_cards
+          default: ${var.dev_json_cards}
+
+      tasks:
+        - task_key: run_aml_account_closure
+          existing_cluster_id: ${var.cluster_id}
+          notebook_task:
+            notebook_path: ../notebooks/run_aml_account_closure.py
+          libraries:
+            - whl: ../dist/*.whl

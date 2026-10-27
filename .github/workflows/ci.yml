@@ -1,0 +1,86 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  DATABRICKS_CLI_VERSION: "0.250.0"
+  TERRAFORM_VERSION: "1.9.8"
+
+jobs:
+  python:
+    name: lint, tipos, tests y wheel
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Instalar dependencias
+        run: python -m pip install -e ".[dev]"
+      - name: ruff (lint)
+        run: ruff check .
+      - name: ruff (format)
+        run: ruff format --check .
+      - name: mypy
+        run: mypy
+      - name: pytest
+        run: pytest --cov-report=xml
+      - name: Build del wheel
+        run: python -m build --wheel
+      - uses: actions/upload-artifact@v4.4.3
+        with:
+          name: wheel
+          path: dist/*.whl
+
+  bundle:
+    name: databricks bundle validate
+    runs-on: ubuntu-24.04
+    # Requiere secretos del repo (no disponibles en PRs desde forks).
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: databricks/setup-cli@v0.250.0
+        with:
+          version: ${{ env.DATABRICKS_CLI_VERSION }}
+      - name: Variables de ejemplo para validar
+        # validate no despliega: basta con valores de ejemplo con el formato <variable>.
+        run: |
+          for v in cluster_id service_principal_application_id api_base_url api_key_scope api_key_name \
+                   operator_user mongo_connection mongo_secret aml_dir email_recipients teams_chat_id \
+                   treasury_source_account treasury_target_account logo_url; do
+            echo "BUNDLE_VAR_${v}=<${v}>" >> "$GITHUB_ENV"
+          done
+      - name: Validar targets
+        run: |
+          databricks bundle validate -t dev
+          databricks bundle validate -t prod
+
+  terraform:
+    name: terraform fmt y validate
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate

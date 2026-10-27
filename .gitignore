@@ -1,0 +1,38 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+
+# Databricks Asset Bundles
+.databricks/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+backend.hcl
+crash.log
+
+# Datos: nunca exports reales ni Excel de Cumplimiento en el repo
+*.xlsx
+*.json.export
+dev_accounts*.json
+dev_cards*.json
+
+# Entorno local
+.env

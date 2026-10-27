@@ -1,0 +1,6 @@
+# Copiar a backend.hcl (ignorado por git):  terraform init -backend-config=backend.hcl
+resource_group_name  = "<resource_group_tfstate>"
+storage_account_name = "<storage_account_tfstate>"
+container_name       = "<container_tfstate>"
+key                  = "aml-account-closure.tfstate"
+use_azuread_auth     = true

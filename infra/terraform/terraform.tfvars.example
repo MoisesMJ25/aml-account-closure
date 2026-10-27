@@ -1,0 +1,19 @@
+# Copiar a terraform.tfvars (ignorado por git) y completar. Dev y prod comparten workspace, Volume y carpetas:
+# un solo estado de Terraform.
+catalog_name            = "<catalogo>"
+volume_schema_name      = "<schema_volume>"
+volume_name             = "<volume>"
+volume_type             = "MANAGED"
+aml_folder              = "<carpeta_aml>"
+analytics_schema_name   = "<schema_tablas>"
+compliance_group_name   = "<grupo_cumplimiento>"
+job_service_principal_application_id = "<sp_application_id>"
+
+secret_scopes = {
+  "<scope_api_key_dev>"  = {}
+  "<scope_api_key_prod>" = {}
+  "<scope_mongo_dev>"    = {}
+  "<scope_mongo_prod>"   = {}
+  # Scope respaldado por Azure Key Vault:
+  # "<scope_akv>" = { keyvault_resource_id = "<resource_id_key_vault>", keyvault_dns_name = "https://<key_vault>.vault.azure.net/" }
+}

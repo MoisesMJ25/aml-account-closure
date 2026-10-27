@@ -1,0 +1,66 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Target del bundle
+        type: choice
+        options: [dev, prod]
+        default: dev
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy ${{ inputs.target }}
+    runs-on: ubuntu-24.04
+    # GitHub Environment "dev" / "prod". "prod" debe tener "Required reviewers" (aprobación manual).
+    environment: ${{ inputs.target }}
+    env:
+      # Autenticación: service principal OAuth M2M (secretos del Environment)
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      # Variables del bundle: no sensibles en vars, correos/chats/cuentas en secrets (enmascarados en logs)
+      BUNDLE_VAR_cluster_id: ${{ vars.CLUSTER_ID }}
+      BUNDLE_VAR_service_principal_application_id: ${{ vars.SERVICE_PRINCIPAL_APPLICATION_ID }}
+      BUNDLE_VAR_utils_dir: ${{ vars.UTILS_DIR }}
+      BUNDLE_VAR_api_base_url: ${{ vars.API_BASE_URL }}
+      BUNDLE_VAR_api_key_scope: ${{ vars.API_KEY_SCOPE }}
+      BUNDLE_VAR_api_key_name: ${{ vars.API_KEY_NAME }}
+      BUNDLE_VAR_mongo_connection: ${{ vars.MONGO_CONNECTION }}
+      BUNDLE_VAR_mongo_secret: ${{ vars.MONGO_SECRET }}
+      BUNDLE_VAR_aml_dir: ${{ vars.AML_DIR }}
+      BUNDLE_VAR_tables_schema: ${{ vars.TABLES_SCHEMA }}
+      BUNDLE_VAR_logo_url: ${{ vars.LOGO_URL }}
+      BUNDLE_VAR_dev_json_accounts: ${{ vars.DEV_JSON_ACCOUNTS }}
+      BUNDLE_VAR_dev_json_cards: ${{ vars.DEV_JSON_CARDS }}
+      BUNDLE_VAR_operator_user: ${{ secrets.OPERATOR_USER }}
+      BUNDLE_VAR_email_recipients: ${{ secrets.EMAIL_RECIPIENTS }}
+      BUNDLE_VAR_success_recipients: ${{ secrets.SUCCESS_RECIPIENTS }}
+      BUNDLE_VAR_teams_chat_id: ${{ secrets.TEAMS_CHAT_ID }}
+      BUNDLE_VAR_treasury_source_account: ${{ secrets.TREASURY_SOURCE_ACCOUNT }}
+      BUNDLE_VAR_treasury_target_account: ${{ secrets.TREASURY_TARGET_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependencias
+        run: python -m pip install -e ".[dev]"
+      - name: Tests antes de desplegar
+        run: pytest -q
+      - uses: databricks/setup-cli@v0.250.0
+        with:
+          version: "0.250.0"
+      - name: Validar
+        run: databricks bundle validate -t "${{ inputs.target }}"
+      - name: Desplegar (build del wheel + job)
+        run: databricks bundle deploy -t "${{ inputs.target }}"
